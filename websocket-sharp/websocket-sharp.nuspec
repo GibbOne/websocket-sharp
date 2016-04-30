@@ -13,4 +13,8 @@
     <iconUrl>https://trello-attachments.s3.amazonaws.com/55d5dbd19330afb229c8307e/128x128/053650646840a5f2193be3d047079bac/logo_nuget.png</iconUrl>
     <projectUrl>https://git.loccioni.com/aulos/Loccioni-Aulos-CSharp</projectUrl>
   </metadata>
+  <files>
+    <file src=".\bin\$configuration$\$id$.dll" target="lib\net461" />
+    <file src=".\bin\$configuration$\$id$.xml" target="lib\net461" />
+  </files>
 </package>
