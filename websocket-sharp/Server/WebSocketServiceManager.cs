@@ -319,7 +319,7 @@ namespace WebSocketSharp.Server
         path = HttpUtility.UrlDecode (path).TrimEndSlash ();
 
         var results = from result in _hosts
-                        where Regex.Match(path, result.Key, RegexOptions.Singleline).Success
+                        where Regex.Match(path.ToUpper(), result.Key.ToUpper(), RegexOptions.Singleline).Success
                         select result;
         ret = results.Count() != 0;
         host = results.FirstOrDefault().Value;
