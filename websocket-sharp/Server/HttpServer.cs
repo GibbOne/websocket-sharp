@@ -39,6 +39,7 @@
 
 using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Security.Principal;
 using System.Threading;
 using WebSocketSharp.Net;
