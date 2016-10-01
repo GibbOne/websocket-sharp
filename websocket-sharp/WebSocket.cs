@@ -79,9 +79,9 @@ namespace WebSocketSharp
     private AutoResetEvent                 _exitReceiving;
     private string                         _extensions;
     private bool                           _extensionsRequested;
-    private object                         _forConn;
     private object                         _forMessageEventQueue;
     private object                         _forSend;
+    private object                         _forState;
     private MemoryStream                   _fragmentsBuffer;
     private bool                           _fragmentsCompressed;
     private Opcode                         _fragmentsOpcode;
@@ -308,7 +308,7 @@ namespace WebSocketSharp
       }
 
       set {
-        lock (_forConn) {
+        lock (_forState) {
           string msg;
           if (!checkIfAvailable (true, false, true, false, false, true, out msg)) {
             _logger.Error (msg);
@@ -383,7 +383,7 @@ namespace WebSocketSharp
       }
 
       set {
-        lock (_forConn) {
+        lock (_forState) {
           string msg;
           if (!checkIfAvailable (true, false, true, false, false, true, out msg)) {
             _logger.Error (msg);
@@ -479,7 +479,7 @@ namespace WebSocketSharp
       }
 
       set {
-        lock (_forConn) {
+        lock (_forState) {
           string msg;
           if (!checkIfAvailable (true, false, true, false, false, true, out msg)) {
             _logger.Error (msg);
@@ -553,7 +553,7 @@ namespace WebSocketSharp
       }
 
       set {
-        lock (_forConn) {
+        lock (_forState) {
           string msg;
           if (!checkIfAvailable (true, false, true, false, false, true, out msg)) {
             _logger.Error (msg);
@@ -592,7 +592,7 @@ namespace WebSocketSharp
       }
 
       set {
-        lock (_forConn) {
+        lock (_forState) {
           string msg;
           if (!checkIfAvailable (true, true, true, false, false, true, out msg)
               || !value.CheckWaitTime (out msg)
@@ -639,7 +639,7 @@ namespace WebSocketSharp
     // As server
     private bool accept ()
     {
-      lock (_forConn) {
+      lock (_forState) {
         string msg;
         if (!checkIfAvailable (true, false, false, false, out msg)) {
           _logger.Error (msg);
@@ -792,22 +792,22 @@ namespace WebSocketSharp
       message = null;
 
       if (!connecting && _readyState == WebSocketState.Connecting) {
-        message = "This operation isn't available in: connecting";
+        message = "This operation is not available in: connecting";
         return false;
       }
 
       if (!open && _readyState == WebSocketState.Open) {
-        message = "This operation isn't available in: open";
+        message = "This operation is not available in: open";
         return false;
       }
 
       if (!closing && _readyState == WebSocketState.Closing) {
-        message = "This operation isn't available in: closing";
+        message = "This operation is not available in: closing";
         return false;
       }
 
       if (!closed && _readyState == WebSocketState.Closed) {
-        message = "This operation isn't available in: closed";
+        message = "This operation is not available in: closed";
         return false;
       }
 
@@ -827,16 +827,78 @@ namespace WebSocketSharp
       message = null;
 
       if (!client && _client) {
-        message = "This operation isn't available in: client";
+        message = "This operation is not available in: client";
         return false;
       }
 
       if (!server && !_client) {
-        message = "This operation isn't available in: server";
+        message = "This operation is not available in: server";
         return false;
       }
 
       return checkIfAvailable (connecting, open, closing, closed, out message);
+    }
+
+    private static bool checkParametersForSetCredentials (
+      string username, string password, out string message
+    )
+    {
+      message = null;
+
+      if (username.IsNullOrEmpty ())
+        return true;
+
+      if (username.Contains (':') || !username.IsText ()) {
+        message = "'username' contains an invalid character.";
+        return false;
+      }
+
+      if (password.IsNullOrEmpty ())
+        return true;
+
+      if (!password.IsText ()) {
+        message = "'password' contains an invalid character.";
+        return false;
+      }
+
+      return true;
+    }
+
+    private static bool checkParametersForSetProxy (
+      string url, string username, string password, out string message
+    )
+    {
+      message = null;
+
+      if (url.IsNullOrEmpty ())
+        return true;
+
+      Uri uri;
+      if (!Uri.TryCreate (url, UriKind.Absolute, out uri)
+          || uri.Scheme != "http"
+          || uri.Segments.Length > 1
+      ) {
+        message = "'url' is an invalid URL.";
+        return false;
+      }
+
+      if (username.IsNullOrEmpty ())
+        return true;
+
+      if (username.Contains (':') || !username.IsText ()) {
+        message = "'username' contains an invalid character.";
+        return false;
+      }
+
+      if (password.IsNullOrEmpty ())
+        return true;
+
+      if (!password.IsText ()) {
+        message = "'password' contains an invalid character.";
+        return false;
+      }
+
+      return true;
     }
 
     private bool checkReceivedFrame (WebSocketFrame frame, out string message)
@@ -850,7 +912,7 @@ namespace WebSocketSharp
       }
 
       if (!_client && !masked) {
-        message = "A frame from a client isn't masked.";
+        message = "A frame from a client is not masked.";
         return false;
       }
 
@@ -877,9 +939,20 @@ namespace WebSocketSharp
       return true;
     }
 
+    private void close (ushort code, string reason)
+    {
+      if (code == 1005) { // == no status
+        close (new CloseEventArgs (), true, true, false);
+        return;
+      }
+
+      var send = !code.IsReserved ();
+      close (new CloseEventArgs (code, reason), send, send, false);
+    }
+
     private void close (CloseEventArgs e, bool send, bool receive, bool received)
     {
-      lock (_forConn) {
+      lock (_forState) {
         if (_readyState == WebSocketState.Closing) {
           _logger.Info ("The closing is already in progress.");
           return;
@@ -914,6 +987,17 @@ namespace WebSocketSharp
       }
     }
 
+    private void closeAsync (ushort code, string reason)
+    {
+      if (code == 1005) { // == no status
+        closeAsync (new CloseEventArgs (), true, true, false);
+        return;
+      }
+
+      var send = !code.IsReserved ();
+      closeAsync (new CloseEventArgs (code, reason), send, send, false);
+    }
+
     private void closeAsync (CloseEventArgs e, bool send, bool receive, bool received)
     {
       Action<CloseEventArgs, bool, bool, bool> closer = close;
@@ -936,7 +1020,7 @@ namespace WebSocketSharp
     // As client
     private bool connect ()
     {
-      lock (_forConn) {
+      lock (_forState) {
         string msg;
         if (!checkIfAvailable (true, false, false, true, out msg)) {
           _logger.Error (msg);
@@ -1125,8 +1209,8 @@ namespace WebSocketSharp
     {
       _compression = CompressionMethod.None;
       _cookies = new CookieCollection ();
-      _forConn = new object ();
       _forSend = new object ();
+      _forState = new object ();
       _messageEventQueue = new Queue<MessageEventArgs> ();
       _forMessageEventQueue = ((ICollection) _messageEventQueue).SyncRoot;
       _readyState = WebSocketState.Connecting;
@@ -1219,7 +1303,7 @@ namespace WebSocketSharp
     private bool processCloseFrame (WebSocketFrame frame)
     {
       var payload = frame.PayloadData;
-      close (new CloseEventArgs (payload), !payload.IncludesReservedCloseStatusCode, false, true);
+      close (new CloseEventArgs (payload), !payload.HasReservedCode, false, true);
 
       return false;
     }
@@ -1429,7 +1513,7 @@ namespace WebSocketSharp
 
     private bool send (byte[] frameAsBytes)
     {
-      lock (_forConn) {
+      lock (_forState) {
         if (_readyState != WebSocketState.Open) {
           _logger.Error ("The sending has been interrupted.");
           return false;
@@ -1518,7 +1602,7 @@ namespace WebSocketSharp
 
     private bool send (Fin fin, Opcode opcode, byte[] data, bool compressed)
     {
-      lock (_forConn) {
+      lock (_forState) {
         if (_readyState != WebSocketState.Open) {
           _logger.Error ("The sending has been interrupted.");
           return false;
@@ -1856,32 +1940,67 @@ namespace WebSocketSharp
 
     #region Internal Methods
 
-    internal static string CheckCloseParameters (ushort code, string reason, bool client)
+    internal static bool CheckParametersForClose (
+      ushort code, string reason, bool client, out string message
+    )
     {
-      return !code.IsCloseStatusCode ()
-             ? "An invalid close status code."
-             : code == (ushort) CloseStatusCode.NoStatus
-               ? (!reason.IsNullOrEmpty () ? "NoStatus cannot have a reason." : null)
-               : code == (ushort) CloseStatusCode.MandatoryExtension && !client
-                 ? "MandatoryExtension cannot be used by a server."
-                 : code == (ushort) CloseStatusCode.ServerError && client
-                   ? "ServerError cannot be used by a client."
-                   : !reason.IsNullOrEmpty () && reason.UTF8Encode ().Length > 123
-                     ? "A reason has greater than the allowable max size."
-                     : null;
+      message = null;
+
+      if (!code.IsCloseStatusCode ()) {
+        message = "'code' is an invalid status code.";
+        return false;
+      }
+
+      if (code == (ushort) CloseStatusCode.NoStatus && !reason.IsNullOrEmpty ()) {
+        message = "'code' cannot have a reason.";
+        return false;
+      }
+
+      if (code == (ushort) CloseStatusCode.MandatoryExtension && !client) {
+        message = "'code' cannot be used by a server.";
+        return false;
+      }
+
+      if (code == (ushort) CloseStatusCode.ServerError && client) {
+        message = "'code' cannot be used by a client.";
+        return false;
+      }
+
+      if (!reason.IsNullOrEmpty () && reason.UTF8Encode ().Length > 123) {
+        message = "The size of 'reason' is greater than the allowable max size.";
+        return false;
+      }
+
+      return true;
     }
 
-    internal static string CheckCloseParameters (CloseStatusCode code, string reason, bool client)
+    internal static bool CheckParametersForClose (
+      CloseStatusCode code, string reason, bool client, out string message
+    )
     {
-      return code == CloseStatusCode.NoStatus
-             ? (!reason.IsNullOrEmpty () ? "NoStatus cannot have a reason." : null)
-             : code == CloseStatusCode.MandatoryExtension && !client
-               ? "MandatoryExtension cannot be used by a server."
-               : code == CloseStatusCode.ServerError && client
-                 ? "ServerError cannot be used by a client."
-                 : !reason.IsNullOrEmpty () && reason.UTF8Encode ().Length > 123
-                   ? "A reason has greater than the allowable max size."
-                   : null;
+      message = null;
+
+      if (code == CloseStatusCode.NoStatus && !reason.IsNullOrEmpty ()) {
+        message = "'code' cannot have a reason.";
+        return false;
+      }
+
+      if (code == CloseStatusCode.MandatoryExtension && !client) {
+        message = "'code' cannot be used by a server.";
+        return false;
+      }
+
+      if (code == CloseStatusCode.ServerError && client) {
+        message = "'code' cannot be used by a client.";
+        return false;
+      }
+
+      if (!reason.IsNullOrEmpty () && reason.UTF8Encode ().Length > 123) {
+        message = "The size of 'reason' is greater than the allowable max size.";
+        return false;
+      }
+
+      return true;
     }
 
     internal static string CheckPingParameter (string message, out byte[] bytes)
@@ -1936,7 +2055,7 @@ namespace WebSocketSharp
     // As server
     internal void Close (CloseEventArgs e, byte[] frameAsBytes, bool receive)
     {
-      lock (_forConn) {
+      lock (_forState) {
         if (_readyState == WebSocketState.Closing) {
           _logger.Info ("The closing is already in progress.");
           return;
@@ -2020,7 +2139,7 @@ namespace WebSocketSharp
     internal void Send (Opcode opcode, byte[] data, Dictionary<CompressionMethod, byte[]> cache)
     {
       lock (_forSend) {
-        lock (_forConn) {
+        lock (_forState) {
           if (_readyState != WebSocketState.Open) {
             _logger.Error ("The sending has been interrupted.");
             return;
@@ -2081,7 +2200,7 @@ namespace WebSocketSharp
     /// Accepts the WebSocket handshake request.
     /// </summary>
     /// <remarks>
-    /// This method isn't available in a client.
+    /// This method is not available in a client.
     /// </remarks>
     public void Accept ()
     {
@@ -2102,10 +2221,10 @@ namespace WebSocketSharp
     /// </summary>
     /// <remarks>
     ///   <para>
-    ///   This method doesn't wait for the accept to be complete.
+    ///   This method does not wait for the accept to be complete.
     ///   </para>
     ///   <para>
-    ///   This method isn't available in a client.
+    ///   This method is not available in a client.
     ///   </para>
     /// </remarks>
     public void AcceptAsync ()
@@ -2145,143 +2264,135 @@ namespace WebSocketSharp
     }
 
     /// <summary>
-    /// Closes the WebSocket connection with the specified <see cref="ushort"/>,
+    /// Closes the WebSocket connection with the specified <paramref name="code"/>,
     /// and releases all associated resources.
     /// </summary>
-    /// <remarks>
-    /// This method emits a <see cref="OnError"/> event if <paramref name="code"/> isn't in
-    /// the allowable range of the close status code.
-    /// </remarks>
     /// <param name="code">
-    /// A <see cref="ushort"/> that represents the status code indicating the reason for the close.
+    /// A <see cref="ushort"/> that represents the status code indicating
+    /// the reason for the close. The status codes are defined in
+    /// <see href="http://tools.ietf.org/html/rfc6455#section-7.4">
+    /// Section 7.4</see> of RFC 6455.
     /// </param>
     public void Close (ushort code)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, null, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == (ushort) CloseStatusCode.NoStatus) {
-        close (new CloseEventArgs (), true, true, false);
+      if (!CheckParametersForClose (code, null, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
         return;
       }
 
-      var send = !code.IsReserved ();
-      close (new CloseEventArgs (code), send, send, false);
+      close (code, null);
     }
 
     /// <summary>
-    /// Closes the WebSocket connection with the specified <see cref="CloseStatusCode"/>,
+    /// Closes the WebSocket connection with the specified <paramref name="code"/>,
     /// and releases all associated resources.
     /// </summary>
     /// <param name="code">
-    /// One of the <see cref="CloseStatusCode"/> enum values, represents the status code indicating
-    /// the reason for the close.
+    /// One of the <see cref="CloseStatusCode"/> enum values that represents
+    /// the status code indicating the reason for the close.
     /// </param>
     public void Close (CloseStatusCode code)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, null, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == CloseStatusCode.NoStatus) {
-        close (new CloseEventArgs (), true, true, false);
+      if (!CheckParametersForClose (code, null, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
         return;
       }
 
-      var send = !code.IsReserved ();
-      close (new CloseEventArgs (code), send, send, false);
+      close ((ushort) code, null);
     }
 
     /// <summary>
-    /// Closes the WebSocket connection with the specified <see cref="ushort"/> and
-    /// <see cref="string"/>, and releases all associated resources.
+    /// Closes the WebSocket connection with the specified <paramref name="code"/> and
+    /// <paramref name="reason"/>, and releases all associated resources.
     /// </summary>
-    /// <remarks>
-    /// This method emits a <see cref="OnError"/> event if <paramref name="code"/> isn't in
-    /// the allowable range of the close status code or the size of <paramref name="reason"/> is
-    /// greater than 123 bytes.
-    /// </remarks>
     /// <param name="code">
-    /// A <see cref="ushort"/> that represents the status code indicating the reason for the close.
+    /// A <see cref="ushort"/> that represents the status code indicating
+    /// the reason for the close. The status codes are defined in
+    /// <see href="http://tools.ietf.org/html/rfc6455#section-7.4">
+    /// Section 7.4</see> of RFC 6455.
     /// </param>
     /// <param name="reason">
     /// A <see cref="string"/> that represents the reason for the close.
+    /// The size must be 123 bytes or less.
     /// </param>
     public void Close (ushort code, string reason)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, reason, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == (ushort) CloseStatusCode.NoStatus) {
-        close (new CloseEventArgs (), true, true, false);
+      if (!CheckParametersForClose (code, reason, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
         return;
       }
 
-      var send = !code.IsReserved ();
-      close (new CloseEventArgs (code, reason), send, send, false);
+      close (code, reason);
     }
 
     /// <summary>
-    /// Closes the WebSocket connection with the specified <see cref="CloseStatusCode"/> and
-    /// <see cref="string"/>, and releases all associated resources.
+    /// Closes the WebSocket connection with the specified <paramref name="code"/> and
+    /// <paramref name="reason"/>, and releases all associated resources.
     /// </summary>
-    /// <remarks>
-    /// This method emits a <see cref="OnError"/> event if the size of <paramref name="reason"/> is
-    /// greater than 123 bytes.
-    /// </remarks>
     /// <param name="code">
-    /// One of the <see cref="CloseStatusCode"/> enum values, represents the status code indicating
-    /// the reason for the close.
+    /// One of the <see cref="CloseStatusCode"/> enum values that represents
+    /// the status code indicating the reason for the close.
     /// </param>
     /// <param name="reason">
     /// A <see cref="string"/> that represents the reason for the close.
+    /// The size must be 123 bytes or less.
     /// </param>
     public void Close (CloseStatusCode code, string reason)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, reason, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == CloseStatusCode.NoStatus) {
-        close (new CloseEventArgs (), true, true, false);
+      if (!CheckParametersForClose (code, reason, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
         return;
       }
 
-      var send = !code.IsReserved ();
-      close (new CloseEventArgs (code, reason), send, send, false);
+      close ((ushort) code, reason);
     }
 
     /// <summary>
-    /// Closes the WebSocket connection asynchronously, and releases all associated resources.
+    /// Closes the WebSocket connection asynchronously, and releases
+    /// all associated resources.
     /// </summary>
     /// <remarks>
-    /// This method doesn't wait for the close to be complete.
+    /// This method does not wait for the close to be complete.
     /// </remarks>
     public void CloseAsync ()
     {
@@ -2297,162 +2408,148 @@ namespace WebSocketSharp
     }
 
     /// <summary>
-    /// Closes the WebSocket connection asynchronously with the specified <see cref="ushort"/>,
-    /// and releases all associated resources.
+    /// Closes the WebSocket connection asynchronously with the specified
+    /// <paramref name="code"/>, and releases all associated resources.
     /// </summary>
     /// <remarks>
-    ///   <para>
-    ///   This method doesn't wait for the close to be complete.
-    ///   </para>
-    ///   <para>
-    ///   This method emits a <see cref="OnError"/> event if <paramref name="code"/> isn't in
-    ///   the allowable range of the close status code.
-    ///   </para>
+    /// This method does not wait for the close to be complete.
     /// </remarks>
     /// <param name="code">
-    /// A <see cref="ushort"/> that represents the status code indicating the reason for the close.
+    /// A <see cref="ushort"/> that represents the status code indicating
+    /// the reason for the close. The status codes are defined in
+    /// <see href="http://tools.ietf.org/html/rfc6455#section-7.4">
+    /// Section 7.4</see> of RFC 6455.
     /// </param>
     public void CloseAsync (ushort code)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, null, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == (ushort) CloseStatusCode.NoStatus) {
-        closeAsync (new CloseEventArgs (), true, true, false);
+      if (!CheckParametersForClose (code, null, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
         return;
       }
 
-      var send = !code.IsReserved ();
-      closeAsync (new CloseEventArgs (code), send, send, false);
+      closeAsync (code, null);
     }
 
     /// <summary>
     /// Closes the WebSocket connection asynchronously with the specified
-    /// <see cref="CloseStatusCode"/>, and releases all associated resources.
+    /// <paramref name="code"/>, and releases all associated resources.
     /// </summary>
     /// <remarks>
-    /// This method doesn't wait for the close to be complete.
+    /// This method does not wait for the close to be complete.
     /// </remarks>
     /// <param name="code">
-    /// One of the <see cref="CloseStatusCode"/> enum values, represents the status code indicating
-    /// the reason for the close.
+    /// One of the <see cref="CloseStatusCode"/> enum values that represents
+    /// the status code indicating the reason for the close.
     /// </param>
     public void CloseAsync (CloseStatusCode code)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, null, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == CloseStatusCode.NoStatus) {
-        closeAsync (new CloseEventArgs (), true, true, false);
-        return;
-      }
-
-      var send = !code.IsReserved ();
-      closeAsync (new CloseEventArgs (code), send, send, false);
-    }
-
-    /// <summary>
-    /// Closes the WebSocket connection asynchronously with the specified <see cref="ushort"/> and
-    /// <see cref="string"/>, and releases all associated resources.
-    /// </summary>
-    /// <remarks>
-    ///   <para>
-    ///   This method doesn't wait for the close to be complete.
-    ///   </para>
-    ///   <para>
-    ///   This method emits a <see cref="OnError"/> event if <paramref name="code"/> isn't in
-    ///   the allowable range of the close status code or the size of <paramref name="reason"/> is
-    ///   greater than 123 bytes.
-    ///   </para>
-    /// </remarks>
-    /// <param name="code">
-    /// A <see cref="ushort"/> that represents the status code indicating the reason for the close.
-    /// </param>
-    /// <param name="reason">
-    /// A <see cref="string"/> that represents the reason for the close.
-    /// </param>
-    public void CloseAsync (ushort code, string reason)
-    {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, reason, _client);
-
-      if (msg != null) {
+      if (!CheckParametersForClose (code, null, _client, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == (ushort) CloseStatusCode.NoStatus) {
-        closeAsync (new CloseEventArgs (), true, true, false);
-        return;
-      }
-
-      var send = !code.IsReserved ();
-      closeAsync (new CloseEventArgs (code, reason), send, send, false);
+      closeAsync ((ushort) code, null);
     }
 
     /// <summary>
     /// Closes the WebSocket connection asynchronously with the specified
-    /// <see cref="CloseStatusCode"/> and <see cref="string"/>, and releases
+    /// <paramref name="code"/> and <paramref name="reason"/>, and releases
     /// all associated resources.
     /// </summary>
     /// <remarks>
-    ///   <para>
-    ///   This method doesn't wait for the close to be complete.
-    ///   </para>
-    ///   <para>
-    ///   This method emits a <see cref="OnError"/> event if the size of
-    ///   <paramref name="reason"/> is greater than 123 bytes.
-    ///   </para>
+    /// This method does not wait for the close to be complete.
     /// </remarks>
     /// <param name="code">
-    /// One of the <see cref="CloseStatusCode"/> enum values, represents the status code indicating
-    /// the reason for the close.
+    /// A <see cref="ushort"/> that represents the status code indicating
+    /// the reason for the close. The status codes are defined in
+    /// <see href="http://tools.ietf.org/html/rfc6455#section-7.4">
+    /// Section 7.4</see> of RFC 6455.
     /// </param>
     /// <param name="reason">
     /// A <see cref="string"/> that represents the reason for the close.
+    /// The size must be 123 bytes or less.
     /// </param>
-    public void CloseAsync (CloseStatusCode code, string reason)
+    public void CloseAsync (ushort code, string reason)
     {
-      var msg = _readyState.CheckIfAvailable (true, true, false, false) ??
-                CheckCloseParameters (code, reason, _client);
-
-      if (msg != null) {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
         _logger.Error (msg);
         error ("An error has occurred in closing the connection.", null);
 
         return;
       }
 
-      if (code == CloseStatusCode.NoStatus) {
-        closeAsync (new CloseEventArgs (), true, true, false);
+      if (!CheckParametersForClose (code, reason, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
         return;
       }
 
-      var send = !code.IsReserved ();
-      closeAsync (new CloseEventArgs (code, reason), send, send, false);
+      closeAsync (code, reason);
+    }
+
+    /// <summary>
+    /// Closes the WebSocket connection asynchronously with the specified
+    /// <paramref name="code"/> and <paramref name="reason"/>, and releases
+    /// all associated resources.
+    /// </summary>
+    /// <remarks>
+    /// This method does not wait for the close to be complete.
+    /// </remarks>
+    /// <param name="code">
+    /// One of the <see cref="CloseStatusCode"/> enum values that represents
+    /// the status code indicating the reason for the close.
+    /// </param>
+    /// <param name="reason">
+    /// A <see cref="string"/> that represents the reason for the close.
+    /// The size must be 123 bytes or less.
+    /// </param>
+    public void CloseAsync (CloseStatusCode code, string reason)
+    {
+      string msg;
+      if (!checkIfAvailable (true, true, false, false, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
+        return;
+      }
+
+      if (!CheckParametersForClose (code, reason, _client, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in closing the connection.", null);
+
+        return;
+      }
+
+      closeAsync ((ushort) code, reason);
     }
 
     /// <summary>
     /// Establishes a WebSocket connection.
     /// </summary>
     /// <remarks>
-    /// This method isn't available in a server.
+    /// This method is not available in a server.
     /// </remarks>
     public void Connect ()
     {
@@ -2473,10 +2570,10 @@ namespace WebSocketSharp
     /// </summary>
     /// <remarks>
     ///   <para>
-    ///   This method doesn't wait for the connect to be complete.
+    ///   This method does not wait for the connect to be complete.
     ///   </para>
     ///   <para>
-    ///   This method isn't available in a server.
+    ///   This method is not available in a server.
     ///   </para>
     /// </remarks>
     public void ConnectAsync ()
@@ -2758,8 +2855,11 @@ namespace WebSocketSharp
     /// Sets an HTTP <paramref name="cookie"/> to send with
     /// the WebSocket handshake request to the server.
     /// </summary>
+    /// <remarks>
+    /// This method is not available in a server.
+    /// </remarks>
     /// <param name="cookie">
-    /// A <see cref="Cookie"/> that represents the cookie to send.
+    /// A <see cref="Cookie"/> that represents a cookie to send.
     /// </param>
     public void SetCookie (Cookie cookie)
     {
@@ -2771,16 +2871,16 @@ namespace WebSocketSharp
         return;
       }
 
-      lock (_forConn) {
+      if (cookie == null) {
+        _logger.Error ("'cookie' is null.");
+        error ("An error has occurred in setting a cookie.", null);
+
+        return;
+      }
+
+      lock (_forState) {
         if (!checkIfAvailable (true, false, false, true, out msg)) {
           _logger.Error (msg);
-          error ("An error has occurred in setting a cookie.", null);
-
-          return;
-        }
-
-        if (cookie == null) {
-          _logger.Error ("'cookie' is null.");
           error ("An error has occurred in setting a cookie.", null);
 
           return;
@@ -2795,16 +2895,26 @@ namespace WebSocketSharp
     /// Sets a pair of <paramref name="username"/> and <paramref name="password"/> for
     /// the HTTP authentication (Basic/Digest).
     /// </summary>
+    /// <remarks>
+    /// This method is not available in a server.
+    /// </remarks>
     /// <param name="username">
-    /// A <see cref="string"/> that represents the user name used to authenticate.
+    ///   <para>
+    ///   A <see cref="string"/> that represents the user name used to authenticate.
+    ///   </para>
+    ///   <para>
+    ///   If <paramref name="username"/> is <see langword="null"/> or empty,
+    ///   the credentials will be initialized and not be sent.
+    ///   </para>
     /// </param>
     /// <param name="password">
-    /// A <see cref="string"/> that represents the password for <paramref name="username"/>
-    /// used to authenticate.
+    /// A <see cref="string"/> that represents the password for
+    /// <paramref name="username"/> used to authenticate.
     /// </param>
     /// <param name="preAuth">
-    /// <c>true</c> if the <see cref="WebSocket"/> sends the Basic authentication credentials with
-    /// the first handshake request to the server; otherwise, <c>false</c>.
+    /// <c>true</c> if the <see cref="WebSocket"/> sends the credentials for
+    /// the Basic authentication with the first handshake request to the server;
+    /// otherwise, <c>false</c>.
     /// </param>
     public void SetCredentials (string username, string password, bool preAuth)
     {
@@ -2816,7 +2926,14 @@ namespace WebSocketSharp
         return;
       }
 
-      lock (_forConn) {
+      if (!checkParametersForSetCredentials (username, password, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in setting the credentials.", null);
+
+        return;
+      }
+
+      lock (_forState) {
         if (!checkIfAvailable (true, false, false, true, out msg)) {
           _logger.Error (msg);
           error ("An error has occurred in setting the credentials.", null);
@@ -2825,23 +2942,9 @@ namespace WebSocketSharp
         }
 
         if (username.IsNullOrEmpty ()) {
-          _logger.Warn ("The credentials are set back to the default.");
+          _logger.Warn ("The credentials are initialized.");
           _credentials = null;
           _preAuth = false;
-
-          return;
-        }
-
-        if (username.Contains (':') || !username.IsText ()) {
-          _logger.Error ("'username' contains an invalid character.");
-          error ("An error has occurred in setting the credentials.", null);
-
-          return;
-        }
-
-        if (!password.IsNullOrEmpty () && !password.IsText ()) {
-          _logger.Error ("'password' contains an invalid character.");
-          error ("An error has occurred in setting the credentials.", null);
 
           return;
         }
@@ -2852,19 +2955,37 @@ namespace WebSocketSharp
     }
 
     /// <summary>
-    /// Sets an HTTP proxy server URL to connect through, and if necessary,
+    /// Sets the HTTP proxy server URL to connect through, and if necessary,
     /// a pair of <paramref name="username"/> and <paramref name="password"/> for
     /// the proxy server authentication (Basic/Digest).
     /// </summary>
+    /// <remarks>
+    /// This method is not available in a server.
+    /// </remarks>
     /// <param name="url">
-    /// A <see cref="string"/> that represents the proxy server URL to connect through.
+    ///   <para>
+    ///   A <see cref="string"/> that represents the HTTP proxy server URL to
+    ///   connect through. The syntax must be http://&lt;host&gt;[:&lt;port&gt;].
+    ///   </para>
+    ///   <para>
+    ///   If <paramref name="url"/> is <see langword="null"/> or empty,
+    ///   the url and credentials for the proxy will be initialized,
+    ///   and the <see cref="WebSocket"/> will not use the proxy to
+    ///   connect through.
+    ///   </para>
     /// </param>
     /// <param name="username">
-    /// A <see cref="string"/> that represents the user name used to authenticate.
+    ///   <para>
+    ///   A <see cref="string"/> that represents the user name used to authenticate.
+    ///   </para>
+    ///   <para>
+    ///   If <paramref name="username"/> is <see langword="null"/> or empty,
+    ///   the credentials for the proxy will be initialized and not be sent.
+    ///   </para>
     /// </param>
     /// <param name="password">
-    /// A <see cref="string"/> that represents the password for <paramref name="username"/>
-    /// used to authenticate.
+    /// A <see cref="string"/> that represents the password for
+    /// <paramref name="username"/> used to authenticate.
     /// </param>
     public void SetProxy (string url, string username, string password)
     {
@@ -2876,7 +2997,14 @@ namespace WebSocketSharp
         return;
       }
 
-      lock (_forConn) {
+      if (!checkParametersForSetProxy (url, username, password, out msg)) {
+        _logger.Error (msg);
+        error ("An error has occurred in setting the proxy.", null);
+
+        return;
+      }
+
+      lock (_forState) {
         if (!checkIfAvailable (true, false, false, true, out msg)) {
           _logger.Error (msg);
           error ("An error has occurred in setting the proxy.", null);
@@ -2885,47 +3013,22 @@ namespace WebSocketSharp
         }
 
         if (url.IsNullOrEmpty ()) {
-          _logger.Warn ("The proxy url and credentials are set back to the default.");
+          _logger.Warn ("The url and credentials for the proxy are initialized.");
           _proxyUri = null;
           _proxyCredentials = null;
 
           return;
         }
 
-        Uri uri;
-        if (!Uri.TryCreate (url, UriKind.Absolute, out uri)
-            || uri.Scheme != "http"
-            || uri.Segments.Length > 1
-        ) {
-          _logger.Error ("The syntax of a proxy url must be 'http://<host>[:<port>]'.");
-          error ("An error has occurred in setting the proxy.", null);
-
-          return;
-        }
+        _proxyUri = new Uri (url);
 
         if (username.IsNullOrEmpty ()) {
-          _logger.Warn ("The proxy credentials are set back to the default.");
-          _proxyUri = uri;
+          _logger.Warn ("The credentials for the proxy are initialized.");
           _proxyCredentials = null;
 
           return;
         }
 
-        if (username.Contains (':') || !username.IsText ()) {
-          _logger.Error ("'username' contains an invalid character.");
-          error ("An error has occurred in setting the proxy.", null);
-
-          return;
-        }
-
-        if (!password.IsNullOrEmpty () && !password.IsText ()) {
-          _logger.Error ("'password' contains an invalid character.");
-          error ("An error has occurred in setting the proxy.", null);
-
-          return;
-        }
-
-        _proxyUri = uri;
         _proxyCredentials =
           new NetworkCredential (
             username, password, String.Format ("{0}:{1}", _uri.DnsSafeHost, _uri.Port)
@@ -2941,11 +3044,11 @@ namespace WebSocketSharp
     /// Closes the WebSocket connection, and releases all associated resources.
     /// </summary>
     /// <remarks>
-    /// This method closes the connection with <see cref="CloseStatusCode.Away"/>.
+    /// This method closes the connection with status code 1001 (going away).
     /// </remarks>
     void IDisposable.Dispose ()
     {
-      close (new CloseEventArgs (CloseStatusCode.Away), true, true, false);
+      close (new CloseEventArgs (1001), true, true, false);
     }
 
     #endregion

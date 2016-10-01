@@ -8,7 +8,7 @@
  * The MIT License
  *
  * Copyright (c) 2005 Novell, Inc. (http://www.novell.com)
- * Copyright (c) 2012-2015 sta.blockhead
+ * Copyright (c) 2012-2016 sta.blockhead
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -68,7 +68,7 @@ namespace WebSocketSharp.Net
     private object                                               _ctxQueueSync;
     private Dictionary<HttpListenerContext, HttpListenerContext> _ctxRegistry;
     private object                                               _ctxRegistrySync;
-    private Func<IIdentity, NetworkCredential>                   _credFinder;
+    private static readonly string                               _defaultRealm;
     private bool                                                 _disposed;
     private bool                                                 _ignoreWriteExceptions;
     private volatile bool                                        _listening;
@@ -77,8 +77,18 @@ namespace WebSocketSharp.Net
     private string                                               _realm;
     private bool                                                 _reuseAddress;
     private ServerSslConfiguration                               _sslConfig;
+    private Func<IIdentity, NetworkCredential>                   _userCredFinder;
     private List<HttpListenerAsyncResult>                        _waitQueue;
     private object                                               _waitQueueSync;
+
+    #endregion
+
+    #region Static Constructor
+
+    static HttpListener ()
+    {
+      _defaultRealm = "SECRET AREA";
+    }
 
     #endregion
 
@@ -303,9 +313,13 @@ namespace WebSocketSharp.Net
     /// <summary>
     /// Gets or sets the name of the realm associated with the listener.
     /// </summary>
+    /// <remarks>
+    /// If this property is <see langword="null"/> or empty, <c>"SECRET AREA"</c> will be used as
+    /// the name of the realm.
+    /// </remarks>
     /// <value>
     /// A <see cref="string"/> that represents the name of the realm. The default value is
-    /// <c>"SECRET AREA"</c>.
+    /// <see langword="null"/>.
     /// </value>
     /// <exception cref="ObjectDisposedException">
     /// This listener has been closed.
@@ -313,7 +327,7 @@ namespace WebSocketSharp.Net
     public string Realm {
       get {
         CheckDisposed ();
-        return _realm != null && _realm.Length > 0 ? _realm : (_realm = "SECRET AREA");
+        return _realm;
       }
 
       set {
@@ -376,9 +390,9 @@ namespace WebSocketSharp.Net
     /// authenticate a client.
     /// </summary>
     /// <value>
-    /// A <c>Func&lt;<see cref="IIdentity"/>, <see cref="NetworkCredential"/>&gt;</c> delegate that
-    /// references the method used to find the credentials. The default value is a function that
-    /// only returns <see langword="null"/>.
+    /// A <c>Func&lt;<see cref="IIdentity"/>, <see cref="NetworkCredential"/>&gt;</c> delegate
+    /// that references the method used to find the credentials. The default value is
+    /// <see langword="null"/>.
     /// </value>
     /// <exception cref="ObjectDisposedException">
     /// This listener has been closed.
@@ -386,12 +400,12 @@ namespace WebSocketSharp.Net
     public Func<IIdentity, NetworkCredential> UserCredentialsFinder {
       get {
         CheckDisposed ();
-        return _credFinder ?? (_credFinder = id => null);
+        return _userCredFinder;
       }
 
       set {
         CheckDisposed ();
-        _credFinder = value;
+        _userCredFinder = value;
       }
     }
 
@@ -528,36 +542,6 @@ namespace WebSocketSharp.Net
       }
     }
 
-    internal bool Authenticate (HttpListenerContext context)
-    {
-      var schm = SelectAuthenticationScheme (context);
-      if (schm == AuthenticationSchemes.Anonymous)
-        return true;
-
-      if (schm != AuthenticationSchemes.Basic && schm != AuthenticationSchemes.Digest) {
-        context.Response.Close (HttpStatusCode.Forbidden);
-        return false;
-      }
-
-      var realm = Realm;
-      var req = context.Request;
-      var user =
-        HttpUtility.CreateUser (
-          req.Headers["Authorization"], schm, realm, req.HttpMethod, UserCredentialsFinder
-        );
-
-      if (user == null || !user.Identity.IsAuthenticated) {
-        context.Response.CloseWithAuthChallenge (
-          new AuthenticationChallenge (schm, realm).ToString ()
-        );
-
-        return false;
-      }
-
-      context.User = user;
-      return true;
-    }
-
     internal HttpListenerAsyncResult BeginGetContext (HttpListenerAsyncResult asyncResult)
     {
       lock (_ctxRegistrySync) {
@@ -578,6 +562,17 @@ namespace WebSocketSharp.Net
     {
       if (_disposed)
         throw new ObjectDisposedException (GetType ().ToString ());
+    }
+
+    internal string GetRealm ()
+    {
+      var realm = _realm;
+      return realm != null && realm.Length > 0 ? realm : _defaultRealm;
+    }
+
+    internal Func<IIdentity, NetworkCredential> GetUserCredentialsFinder ()
+    {
+      return _userCredFinder;
     }
 
     internal bool RegisterContext (HttpListenerContext context)
@@ -607,11 +602,18 @@ namespace WebSocketSharp.Net
         _connections.Remove (connection);
     }
 
-    internal AuthenticationSchemes SelectAuthenticationScheme (HttpListenerContext context)
+    internal AuthenticationSchemes SelectAuthenticationScheme (HttpListenerRequest request)
     {
-      return AuthenticationSchemeSelector != null
-             ? AuthenticationSchemeSelector (context.Request)
-             : _authSchemes;
+      var selector = _authSchemeSelector;
+      if (selector == null)
+        return _authSchemes;
+
+      try {
+        return selector (request);
+      }
+      catch {
+        return AuthenticationSchemes.None;
+      }
     }
 
     internal void UnregisterContext (HttpListenerContext context)
