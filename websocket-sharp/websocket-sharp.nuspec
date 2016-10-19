@@ -13,8 +13,4 @@
     <iconUrl>https://git.loccioni.com/uploads/group/avatar/5/logo_nuget.png</iconUrl>
     <projectUrl>https://git.loccioni.com/aulos/Loccioni-Aulos-CSharp</projectUrl>
   </metadata>
-  <files>
-    <file src=".\bin\$configuration$\$id$.dll" target="lib\net461" />
-    <file src=".\bin\$configuration$\$id$.xml" target="lib\net461" />
-  </files>
 </package>
