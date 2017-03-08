@@ -2,65 +2,65 @@
 
 ## Welcome to websocket-sharp! ##
 
-**websocket-sharp** supports:
+websocket-sharp supports:
 
-- **[RFC 6455](#supported-websocket-specifications)**
-- **[WebSocket Client](#websocket-client)** and **[Server](#websocket-server)**
-- **[Per-message Compression](#per-message-compression)** extension
-- **[Secure Connection](#secure-connection)**
-- **[HTTP Authentication](#http-authentication)**
-- **[Query String, Origin header and Cookies](#query-string-origin-header-and-cookies)**
-- **[Connecting through the HTTP Proxy server](#connecting-through-the-http-proxy-server)**
-- .NET Framework **3.5** or later (includes compatible environment such as **[Mono]**)
+- [RFC 6455](#supported-websocket-specifications)
+- [WebSocket Client](#websocket-client) and [Server](#websocket-server)
+- [Per-message Compression](#per-message-compression) extension
+- [Secure Connection](#secure-connection)
+- [HTTP Authentication](#http-authentication)
+- [Query string, Origin header, and Cookies](#query-string-origin-header-and-cookies)
+- [Connecting through the HTTP proxy server](#connecting-through-the-http-proxy-server)
+- .NET Framework **3.5** or later (includes compatible environment such as [Mono])
 
 ## Branches ##
 
-- **[master]** for production releases.
-- **[hybi-00]** for older [draft-ietf-hybi-thewebsocketprotocol-00]. No longer maintained.
-- **[draft75]** for even more old [draft-hixie-thewebsocketprotocol-75]. No longer maintained.
+- [master] for production releases.
+- [hybi-00] for older [draft-ietf-hybi-thewebsocketprotocol-00]. No longer maintained.
+- [draft75] for even more old [draft-hixie-thewebsocketprotocol-75]. No longer maintained.
 
 ## Build ##
 
 websocket-sharp is built as a single assembly, **websocket-sharp.dll**.
 
-websocket-sharp is developed with **[MonoDevelop]**. So a simple way to build is to open **websocket-sharp.sln** and run build for **websocket-sharp project** with any of the build configurations (e.g. `Debug`) in MonoDevelop.
+websocket-sharp is developed with [MonoDevelop]. So a simple way to build is to open **websocket-sharp.sln** and run build for **websocket-sharp project** with any of the build configurations (e.g. `Debug`) in MonoDevelop.
 
 ## Install ##
 
 ### Self Build ###
 
-You should add your **websocket-sharp.dll** (e.g. `/path/to/websocket-sharp/bin/Debug/websocket-sharp.dll`) to the library references of your project.
+You should add your websocket-sharp.dll (e.g. `/path/to/websocket-sharp/bin/Debug/websocket-sharp.dll`) to the library references of your project.
 
-If you would like to use that dll in your **[Unity]** project, you should add it to any folder of your project (e.g. `Assets/Plugins`) in **Unity Editor**.
+If you would like to use that dll in your [Unity] project, you should add it to any folder of your project (e.g. `Assets/Plugins`) in the **Unity Editor**.
 
 ### NuGet Gallery ###
 
-websocket-sharp is available on the **[NuGet Gallery]**, as still a **prerelease** version.
+websocket-sharp is available on the [NuGet Gallery], as still a **prerelease** version.
 
-- **[NuGet Gallery: websocket-sharp]**
+- [NuGet Gallery: websocket-sharp]
 
-You can add websocket-sharp to your project with the **NuGet Package Manager**, by using the following command in the **Package Manager Console**.
+You can add websocket-sharp to your project with the NuGet Package Manager, by using the following command in the Package Manager Console.
 
     PM> Install-Package WebSocketSharp -Pre
 
 ### Unity Asset Store ###
 
-websocket-sharp is available on the **Unity Asset Store**.
+websocket-sharp is available on the Unity Asset Store (Sorry, Not available now).
 
-- **[WebSocket-Sharp for Unity]**
+- [WebSocket-Sharp for Unity]
 
 It works with **Unity Free**, but there are some limitations:
 
-- **[Security Sandbox of the Webplayer]** (The server isn't available in Web Player)
-- **[WebGL Networking]** (Not available in WebGL)
-- **Incompatible platform** (Not available for such UWP)
-- **Limited support for the System.IO.Compression** (The compression extension isn't available on Windows)
-- **.NET Socket Support for iOS/Android** (It requires iOS/Android Pro if your Unity is earlier than Unity 5)
-- **.NET API 2.0 compatibility level for iOS/Android**
+- [Security Sandbox of the Webplayer] (The server is not available in Web Player)
+- [WebGL Networking] (Not available in WebGL)
+- Incompatible platform (Not available for such UWP)
+- Lack of dll for the System.IO.Compression (The compression extension is not available on Windows)
+- .NET Socket Support for iOS/Android (iOS/Android Pro is required if your Unity is earlier than Unity 5)
+- .NET API 2.0 compatibility level for iOS/Android
 
-**.NET API 2.0 compatibility level for iOS/Android** may require to fix lack of some features for later than .NET 2.0, such as the `System.Func<...>` delegates (so i have added them in that asset package).
+.NET API 2.0 compatibility level for iOS/Android may require to fix lack of some features for later than .NET Framework 2.0, such as the `System.Func<...>` delegates (so i have added them in the asset package).
 
-And it's priced at **US$15**. I think your $15 makes this project more better and accelerated, **Thank you!**
+And it is priced at **US$15**. I believe your $15 makes this project more better, **Thank you!**
 
 ## Usage ##
 
@@ -379,15 +379,15 @@ wssv.AddWebSocketService<Chat> ("/Chat");
 wssv.AddWebSocketService<Chat> ("/ChatWithNyan", () => new Chat (" Nyan!"));
 ```
 
-You can add any WebSocket service to your `WebSocketServer` with the specified behavior and path to the service, by using the `WebSocketServer.AddWebSocketService<TBehaviorWithNew> (string)` or `WebSocketServer.AddWebSocketService<TBehavior> (string, Func<TBehavior>)` method.
+You can add any WebSocket service to your `WebSocketServer` with the specified behavior and absolute path to the service, by using the `WebSocketServer.AddWebSocketService<TBehaviorWithNew> (string)` or `WebSocketServer.AddWebSocketService<TBehavior> (string, Func<TBehavior>)` method.
 
 The type of `TBehaviorWithNew` must inherit the `WebSocketBehavior` class, and must have a public parameterless constructor.
 
-And also the type of `TBehavior` must inherit the `WebSocketBehavior` class.
+The type of `TBehavior` must inherit the `WebSocketBehavior` class.
 
-So you can use the classes created in **Step 2** to add the service.
+So you can use a class in the above Step 2 to add the service.
 
-If you create a instance of the `WebSocketServer` class without a port number, the `WebSocketServer` class set the port number to **80** automatically. So it's necessary to run with root permission.
+If you create a new instance of the `WebSocketServer` class without a port number, it sets the port number to **80**. So it is necessary to run with root permission.
 
     $ sudo mono example2.exe
 
@@ -432,19 +432,21 @@ For more information, would you see **[Example3]**?
 
 #### Per-message Compression ####
 
-websocket-sharp supports the **[Per-message Compression][compression]** extension (but doesn't support this extension with the [context take over]).
+websocket-sharp supports the [Per-message Compression][compression] extension (but does not support it with the [context take over]).
 
-As a WebSocket client, if you would like to enable this extension, you should set such as the following.
+As a WebSocket client, if you would like to enable this extension, you should set the `WebSocket.Compression` property to a compression method before calling the connect method.
 
 ```csharp
 ws.Compression = CompressionMethod.Deflate;
 ```
 
-And then your client will send the following header in the handshake request to the server.
+And then the client will send the following header in the handshake request to the server.
 
     Sec-WebSocket-Extensions: permessage-deflate; server_no_context_takeover; client_no_context_takeover
 
-If the server accepts this extension, it will return the same header which has the corresponding value. And when your client receives it, this extension will be available.
+If the server supports this extension, it will return the same header which has the corresponding value.
+
+So eventually this extension will be available when the client receives the header in the handshake response.
 
 #### Ignoring the extensions ####
 
@@ -461,23 +463,21 @@ wssv.AddWebSocketService<Chat> (
 );
 ```
 
-If it's set to `true`, the service will not return the **Sec-WebSocket-Extensions** header in its handshake response.
+If it is set to `true`, the service will not return the Sec-WebSocket-Extensions header in its handshake response.
 
 I think this is useful when you get something error in connecting the server and exclude the extensions as a cause of the error.
 
 ### Secure Connection ###
 
-websocket-sharp supports the **Secure Connection** with **SSL/TLS**.
+websocket-sharp supports the secure connection with **SSL/TLS**.
 
-As a **WebSocket Client**, you should create a new instance of the `WebSocket` class with a **wss** scheme WebSocket URL.
+As a WebSocket client, you should create a new instance of the `WebSocket` class with a **wss** scheme WebSocket URL.
 
 ```csharp
-using (var ws = new WebSocket ("wss://example.com")) {
-  ...
-}
+var ws = new WebSocket ("wss://example.com");
 ```
 
-And if you would like to use the custom validation for the server certificate, you should set the `WebSocket.SslConfiguration.ServerCertificateValidationCallback` property.
+If you would like to set a custom validation for the server certificate, you should set the `WebSocket.SslConfiguration.ServerCertificateValidationCallback` property to a callback for it.
 
 ```csharp
 ws.SslConfiguration.ServerCertificateValidationCallback =
@@ -489,9 +489,9 @@ ws.SslConfiguration.ServerCertificateValidationCallback =
   };
 ```
 
-If you set this property to nothing, the validation does nothing with the server certificate, and returns `true`.
+The default callback always returns `true`.
 
-As a **WebSocket Server**, you should create a new instance of the `WebSocketServer` or `HttpServer` class with some settings for secure connection, such as the following.
+As a WebSocket server, you should create a new instance of the `WebSocketServer` or `HttpServer` class with some settings for the secure connection, such as the following.
 
 ```csharp
 var wssv = new WebSocketServer (5963, true);
@@ -501,19 +501,19 @@ wssv.SslConfiguration.ServerCertificate =
 
 ### HTTP Authentication ###
 
-websocket-sharp supports the **[HTTP Authentication (Basic/Digest)][rfc2617]**.
+websocket-sharp supports the [HTTP Authentication (Basic/Digest)][rfc2617].
 
-As a **WebSocket Client**, you should set a pair of user name and password for the HTTP authentication, by using the `WebSocket.SetCredentials (string, string, bool)` method before connecting.
+As a WebSocket client, you should set a pair of user name and password for the HTTP authentication, by using the `WebSocket.SetCredentials (string, string, bool)` method before calling the connect method.
 
 ```csharp
 ws.SetCredentials ("nobita", "password", preAuth);
 ```
 
-If `preAuth` is `true`, the `WebSocket` will send the credentials for the Basic authentication with the first handshake request to the server.
+If `preAuth` is `true`, the client will send the credentials for the Basic authentication in the first handshake request to the server.
 
-Otherwise, the `WebSocket` will send the credentials for either the Basic or Digest (determined by the unauthorized response to the first handshake request) authentication with the second handshake request to the server.
+Otherwise, it will send the credentials for either the Basic or Digest (determined by the unauthorized response to the first handshake request) authentication in the second handshake request to the server.
 
-As a **WebSocket Server**, you should set an HTTP authentication scheme, a realm, and any function to find the user credentials before starting, such as the following.
+As a WebSocket server, you should set an HTTP authentication scheme, a realm, and any function to find the user credentials before calling the start method, such as the following.
 
 ```csharp
 wssv.AuthenticationSchemes = AuthenticationSchemes.Basic;
@@ -524,7 +524,7 @@ wssv.UserCredentialsFinder = id => {
     // Return user name, password, and roles.
     return name == "nobita"
            ? new NetworkCredential (name, "password", "gunfighter")
-           : null; // If the user credentials aren't found.
+           : null; // If the user credentials are not found.
   };
 ```
 
@@ -534,29 +534,27 @@ If you would like to provide the Digest authentication, you should set such as t
 wssv.AuthenticationSchemes = AuthenticationSchemes.Digest;
 ```
 
-### Query String, Origin header and Cookies ###
+### Query string, Origin header, and Cookies ###
 
-As a **WebSocket Client**, if you would like to send the **Query String** with the handshake request to the server, you should create a new instance of the `WebSocket` class with the WebSocket URL that includes the [Query] string parameters.
+As a WebSocket client, if you would like to send the query string in the handshake request, you should create a new instance of the `WebSocket` class with a WebSocket URL that includes the [Query] string parameters.
 
 ```csharp
-using (var ws = new WebSocket ("ws://example.com/?name=nobita")) {
-  ...
-}
+var ws = new WebSocket ("ws://example.com/?name=nobita");
 ```
 
-And if you would like to send the **Origin** header with the handshake request to the server, you should set the `WebSocket.Origin` property to an allowable value as the [Origin] header before connecting, such as the following.
+If you would like to send the Origin header in the handshake request, you should set the `WebSocket.Origin` property to an allowable value as the [Origin] header before calling the connect method.
 
 ```csharp
 ws.Origin = "http://example.com";
 ```
 
-And also if you would like to send the **Cookies** with the handshake request to the server, you should set any cookie by using the `WebSocket.SetCookie (WebSocketSharp.Net.Cookie)` method before connecting, such as the following.
+And if you would like to send the cookies in the handshake request, you should set any cookie by using the `WebSocket.SetCookie (WebSocketSharp.Net.Cookie)` method before calling the connect method.
 
 ```csharp
 ws.SetCookie (new Cookie ("name", "nobita"));
 ```
 
-As a **WebSocket Server**, if you would like to get the **Query String** included in a handshake request, you should access the `WebSocketBehavior.Context.QueryString` property, such as the following.
+As a WebSocket server, if you would like to get the query string included in a handshake request, you should access the `WebSocketBehavior.Context.QueryString` property, such as the following.
 
 ```csharp
 public class Chat : WebSocketBehavior
@@ -573,7 +571,11 @@ public class Chat : WebSocketBehavior
 }
 ```
 
-And if you would like to validate the **Origin** header, **Cookies**, or both included in a handshake request, you should set each validation with your `WebSocketBehavior`, for example, by using the `AddWebSocketService<TBehavior> (string, Func<TBehavior>)` method with initializing, such as the following.
+If you would like to get the value of the Origin header included in a handshake request, you should access the `WebSocketBehavior.Context.Origin` property.
+
+If you would like to get the cookies included in a handshake request, you should access the `WebSocketBehavior.Context.CookieCollection` property.
+
+And if you would like to validate the Origin header, cookies, or both, you should set each validation for it with your `WebSocketBehavior`, for example, by using the `WebSocketServer.AddWebSocketService<TBehavior> (string, Func<TBehavior>)` method with initializing, such as the following.
 
 ```csharp
 wssv.AddWebSocketService<Chat> (
@@ -601,20 +603,18 @@ wssv.AddWebSocketService<Chat> (
 );
 ```
 
-And also if you would like to get each value of the Origin header and cookies, you should access each of the `WebSocketBehavior.Context.Origin` and `WebSocketBehavior.Context.CookieCollection` properties.
+### Connecting through the HTTP proxy server ###
 
-### Connecting through the HTTP Proxy server ###
+websocket-sharp supports to connect through the HTTP proxy server.
 
-websocket-sharp supports to connect through the **HTTP Proxy** server.
-
-If you would like to connect to a WebSocket server through the HTTP proxy server, you should set the proxy server URL, and if necessary, a pair of user name and password for the proxy server authentication (Basic/Digest), by using the `WebSocket.SetProxy (string, string, string)` method before connecting.
+If you would like to connect to a WebSocket server through the HTTP proxy server, you should set the proxy server URL, and if necessary, a pair of user name and password for the proxy server authentication (Basic/Digest), by using the `WebSocket.SetProxy (string, string, string)` method before calling the connect method.
 
 ```csharp
 var ws = new WebSocket ("ws://example.com");
 ws.SetProxy ("http://localhost:3128", "nobita", "password");
 ```
 
-I have tested this with **[Squid]**. It's necessary to disable the following configuration option in **squid.conf** (e.g. `/etc/squid/squid.conf`).
+I have tested this with **[Squid]**. It is necessary to disable the following option in **squid.conf** (e.g. `/etc/squid/squid.conf`).
 
 ```
 # Deny CONNECT to other than SSL ports
@@ -649,34 +649,34 @@ Examples using websocket-sharp.
 
 ### Example ###
 
-**[Example]** connects to the **[Echo server]** with the WebSocket.
+[Example] connects to the [Echo server].
 
 ### Example2 ###
 
-**[Example2]** starts a WebSocket server.
+[Example2] starts a WebSocket server.
 
 ### Example3 ###
 
-**[Example3]** starts an HTTP server that allows to accept the WebSocket handshake requests.
+[Example3] starts an HTTP server that allows to accept the WebSocket handshake requests.
 
 Would you access to [http://localhost:4649](http://localhost:4649) to do **WebSocket Echo Test** with your web browser while Example3 is running?
 
 ## Supported WebSocket Specifications ##
 
-websocket-sharp supports **[RFC 6455][rfc6455]**, and it's based on the following WebSocket references:
+websocket-sharp supports **RFC 6455**, and it is based on the following references:
 
-- **[The WebSocket Protocol][rfc6455]**
-- **[The WebSocket API][api]**
-- **[Compression Extensions for WebSocket][compression]**
+- [The WebSocket Protocol][rfc6455]
+- [The WebSocket API][api]
+- [Compression Extensions for WebSocket][compression]
 
 Thanks for translating to japanese.
 
-- **[The WebSocket Protocol 日本語訳][rfc6455_ja]**
-- **[The WebSocket API 日本語訳][api_ja]**
+- [The WebSocket Protocol 日本語訳][rfc6455_ja]
+- [The WebSocket API 日本語訳][api_ja]
 
 ## License ##
 
-websocket-sharp is provided under **[The MIT License]**.
+websocket-sharp is provided under [The MIT License].
 
 
 [Echo server]: http://www.websocket.org/echo.html

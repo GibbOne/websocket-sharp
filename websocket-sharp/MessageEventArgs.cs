@@ -35,8 +35,9 @@ namespace WebSocketSharp
   /// </summary>
   /// <remarks>
   ///   <para>
-  ///   That event occurs when the <see cref="WebSocket"/> receives a message or
-  ///   a ping if the <see cref="WebSocket.EmitOnPing"/> property is set to <c>true</c>.
+  ///   That event occurs when the <see cref="WebSocket"/> receives
+  ///   a message or a ping if the <see cref="WebSocket.EmitOnPing"/>
+  ///   property is set to <c>true</c>.
   ///   </para>
   ///   <para>
   ///   If you would like to get the message data, you should access
@@ -96,19 +97,13 @@ namespace WebSocketSharp
     /// Gets the message data as a <see cref="string"/>.
     /// </summary>
     /// <value>
-    /// A <see cref="string"/> that represents the message data
-    /// if it can be decoded to a string; otherwise, <see langword="null"/>.
+    /// A <see cref="string"/> that represents the message data if its type is
+    /// text or ping and if decoding it to a string has successfully done;
+    /// otherwise, <see langword="null"/>.
     /// </value>
     public string Data {
       get {
-        if (!_dataSet) {
-          _data = _opcode != Opcode.Binary
-                  ? _rawData.UTF8Decode ()
-                  : BitConverter.ToString (_rawData);
-
-          _dataSet = true;
-        }
-
+        setData ();
         return _data;
       }
     }
@@ -157,8 +152,27 @@ namespace WebSocketSharp
     /// </value>
     public byte[] RawData {
       get {
+        setData ();
         return _rawData;
       }
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private void setData ()
+    {
+      if (_dataSet)
+        return;
+
+      if (_opcode == Opcode.Binary) {
+        _dataSet = true;
+        return;
+      }
+
+      _data = _rawData.UTF8Decode ();
+      _dataSet = true;
     }
 
     #endregion
