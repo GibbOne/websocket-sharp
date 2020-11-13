@@ -937,6 +937,9 @@ namespace WebSocketSharp.Server
         );
       }
 
+      _listener.Server.SetSocketOption(
+          SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, 0);
+
       _listener.Start ();
       _receiveThread = new Thread (new ThreadStart (receiveRequest));
       _receiveThread.IsBackground = true;
